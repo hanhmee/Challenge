@@ -1,0 +1,11 @@
+torch
+einops
+transformers
+pyctcdecode
+pandas
+tqdm
+jiwer
+librosa
+numpy
+matplotlib
+scikit-learn

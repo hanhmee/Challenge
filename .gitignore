@@ -1,0 +1,26 @@
+# Dataset
+data/
+datasets/
+audio_data/
+
+# Model
+checkpoints/
+outputs/
+runs/
+exp/
+wandb/
+
+# Large files
+*.wav
+*.flac
+*.mp3
+*.pt
+*.pth
+*.ckpt
+*.bin
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
