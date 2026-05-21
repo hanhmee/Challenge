@@ -18,6 +18,7 @@ wandb/
 *.pth
 *.ckpt
 *.bin
+*.zip
 
 # Python
 __pycache__/
