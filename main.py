@@ -5,8 +5,8 @@ from trainer import MDDTrainer
 
 def build_args():
     parser = argparse.ArgumentParser(description='Structured XLSR-based MDD training pipeline')
-    parser.add_argument('--train_csv', type=str, default='train.csv', help='Path to train csv file')
-    parser.add_argument('--dev_csv', type=str, default='dev.csv', help='Path to dev csv file')
+    parser.add_argument('--train_csv', type=str, default='data/train.csv', help='Path to train csv file')
+    parser.add_argument('--dev_csv', type=str, default='data/dev.csv', help='Path to dev csv file')
     parser.add_argument('--train_wav_dir', type=str, default='data/train/wav', help='Directory containing wav files')
     parser.add_argument('--dev_wav_dir', type=str, default='data/dev/wav', help='Directory containing wav files')
     parser.add_argument('--vocab_path', type=str, default='vocab.json', help='Path to vocab json')
