@@ -98,8 +98,7 @@ class MDDTrainer:
         for batch_idx, data in tqdm(enumerate(self.train_loader), total=len(self.train_loader)):
             input_values, linguistic, labels, target_lengths, wav_lengths = data
             input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
-            print(input_lengths, target_lengths, wav_lengths)
-            quit()
+
             logits = self.model(input_values, linguistic)
 
             logits = logits.transpose(0, 1)
