@@ -15,6 +15,8 @@ ERROR_PAD_ID = 2
 
 with open("/home/user14/trungnt/mdd/xlsr_mdd_structured/vocab_fixed.json", "r", encoding="utf-8") as f:
     vocab = json.load(f)
+if "" in vocab:
+    vocab["<eps>"] = vocab.pop("")
 
 CTC_LABELS = list(vocab.keys())
 
