@@ -1,167 +1,132 @@
-import einops
 import torch
-import torch.nn as nn
+from torch import nn
 from transformers import Wav2Vec2Model, Wav2Vec2PreTrainedModel
+import torch.nn.functional as F
+
+def init_sub_block(
+    input_dim,
+    model_dim,
+    kernel_size=3,
+    stride=2,
+):
+    return nn.Sequential(
+        nn.Conv1d(input_dim, model_dim, kernel_size, stride, padding=1),
+        nn.ReLU(),
+    )
 
 
-class CNN_Stack(nn.Module):
-    def __init__(self, num_features, p=0.2):
+def calc_length(
+    lengths, padding=1, kernel_size=3, stride=2, ceil_mode=False, repeat_num=1
+):
+    add_pad: float = (padding * 2) - kernel_size
+    one: float = 1.0
+    for i in range(repeat_num):
+        lengths = torch.div(lengths.to(dtype=torch.float) + add_pad, stride) + one
+        if ceil_mode:
+            lengths = torch.ceil(lengths)
+        else:
+            lengths = torch.floor(lengths)
+    return lengths.to(dtype=torch.int)
+
+class PhoneCNNStack(nn.Module):
+    def __init__(self, hidden_dim):
         super().__init__()
-        self.conv2d = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=3, padding=1)
-        self.bn = nn.BatchNorm1d(num_features=num_features)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(p=p)
+
+        self.Conv2d = nn.Conv2d(1, 1, 3, 1, 1)
+        self.reLU = nn.ReLU()
+        self.drop_out = nn.Dropout(p=0.2)
+        self.bn = nn.BatchNorm1d(hidden_dim)
 
     def forward(self, x):
-        x = x.unsqueeze(1)
-        x = self.conv2d(x)
+        if x.dim() == 3:
+            x = x.unsqueeze(1)
+        x = self.Conv2d(x)
         x = x.squeeze(1)
-        x = einops.rearrange(x, 'b t c -> b c t')
-        x = self.bn(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = einops.rearrange(x, 'b c t -> b t c')
+        x = self.bn(x.transpose(1, 2)).transpose(1, 2)
+        x = self.reLU(x)
+        x = self.drop_out(x)
         return x
 
 
-class RNN_Stack(nn.Module):
-    def __init__(self, num_features_in, num_features_out, p=0.2):
+class PhoneRNNStack(nn.Module):
+    def __init__(self, hidden_dim):
         super().__init__()
-        assert num_features_out % 2 == 0, 'num_features_out must be divided by 2'
-        self.bi_lstm = nn.LSTM(
-            input_size=num_features_in,
-            hidden_size=num_features_out // 2,
-            bidirectional=True,
-            batch_first=True,
-        )
-        self.bn = nn.BatchNorm1d(num_features_out)
-        self.dropout = nn.Dropout(p=p)
+        self.reLU = nn.ReLU()
+        self.drop_out = nn.Dropout(p=0.2)
+        self.bn = nn.BatchNorm1d(hidden_dim)
+        self.bilstm = nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim//2, bidirectional=True, batch_first=True)
 
     def forward(self, x):
-        x, _ = self.bi_lstm(x)
-        x = einops.rearrange(x, 'b t c -> b c t')
-        x = self.bn(x)
-        x = self.dropout(x)
-        x = einops.rearrange(x, 'b c t -> b t c')
+        x, _ = self.bilstm(x)
+        x = self.bn(x.transpose(1, 2)).transpose(1, 2)
+        x = self.drop_out(x)
+
         return x
 
 
-class LinguisticEncoder(nn.Module):
-    def __init__(self, num_features_out=768, vocab_size=123):
+class Phonetic_encoder(nn.Module):
+    def __init__(self, hidden_dim):
         super().__init__()
-        self.embedding = nn.Embedding(vocab_size + 1, 64, padding_idx=vocab_size)
-        self.bi_lstm = nn.LSTM(
-            input_size=64,
-            hidden_size=num_features_out // 2,
-            bidirectional=True,
-            batch_first=True,
-            num_layers=4,
-        )
-        self.linear = nn.Linear(num_features_out, num_features_out)
+        self.CNN = PhoneCNNStack(hidden_dim=hidden_dim)
+        self.RNN = PhoneRNNStack(hidden_dim=hidden_dim)
 
     def forward(self, x):
+        x = self.CNN(x)
+        x = self.RNN(x)
+        return x
+
+
+
+    
+class Linguistic_encoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.embedding = nn.Embedding(256, 64)
+        self.fc1 = nn.Linear(128, 2304)
+        self.bilstm = nn.LSTM(input_size=64, hidden_size=64, bidirectional=True, batch_first=True)
+        self.fc3 = nn.Linear(128, 2304)
+
+    def forward(self, x):
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        x = x.long()
         x = self.embedding(x)
-        out, _ = self.bi_lstm(x)
-        h_k = self.linear(out)
-        h_v = out
-        return h_k, h_v
-
-
-class Wav2Vec2Linguistic(Wav2Vec2PreTrainedModel):
-    def __init__(self, config):
+        o, _ = self.bilstm(x)
+        y = self.fc1(o)
+        x = self.fc3(o)
+        return x, y
+    
+class APL(Wav2Vec2PreTrainedModel):
+    def __init__(self, config, hidden_dim=1024):
         super().__init__(config)
         self.wav2vec2 = Wav2Vec2Model(config)
-        self.classifier_vocab = nn.Linear(1536, 123)
-        self.multihead_attention = nn.MultiheadAttention(
-            embed_dim=768,
-            num_heads=16,
-            dropout=0.2,
-            batch_first=True,
-        )
-        self.linguistic_encoder = LinguisticEncoder()
-        self.post_init()
+        self.Phonetic_encoder = Phonetic_encoder(hidden_dim=hidden_dim)
+        self.Linguistic_encoder = Linguistic_encoder()
+        # self.text_to_tensor = text_to_tensor
+        # self.tensor_to_text = tensor_to_text
+        # phonetic-only attention: embed_dim = hidden_dim
+        self.fc1 = nn.Linear(hidden_dim*2, 123, bias=True)
+        self.multihead_attn = nn.MultiheadAttention(hidden_dim, 16, batch_first=True, kdim=2304, vdim=2304)
 
     def freeze_feature_extractor(self):
         self.wav2vec2.feature_extractor._freeze_parameters()
 
-    def forward(self, audio_input, canonical):
-        acoustic = self.wav2vec2(audio_input, attention_mask=None)[0]
-        h_k, h_v = self.linguistic_encoder(canonical)
-        attended, _ = self.multihead_attention(acoustic, h_k, h_v)
-        output = torch.concat([acoustic, attended], dim=2)
-        logits = self.classifier_vocab(output)
-        return logits
+    def forward(self, input_values, linguistic):
+        # phonetic features from wav2vec
+        phonetic = self.wav2vec2(input_values, attention_mask=None)[0]
 
+        phonetic = self.Phonetic_encoder(phonetic)  # batch x time x hidden_dim
+        h_k, h_v = self.Linguistic_encoder(linguistic)
 
-class MFAWav2Vec2Linguistic(Wav2Vec2PreTrainedModel):
-    def __init__(self, config):
-        super().__init__(config)
-        self.wav2vec2 = Wav2Vec2Model(config)
-        self.classifier_vocab = nn.Linear(1536, 124)
-        self.multihead_attention_a = nn.MultiheadAttention(
-            embed_dim=768,
-            num_heads=16,
-            dropout=0.2,
-            batch_first=True,
-        )
-        self.multihead_attention_l = nn.MultiheadAttention(
-            embed_dim=768,
-            num_heads=16,
-            dropout=0.2,
-            batch_first=True,
-        )
-        self.prj_a = nn.Linear(768, 768)
-        self.prj_l = nn.Linear(768, 768)
-        self.embedding = nn.Embedding(124, 768, padding_idx=68)
-        self.post_init()
+        # ensure time alignment
+        min_time = min(phonetic.size(1), h_k.size(1))
+        phonetic = phonetic[:, :min_time, :]
+        h_k = h_k[:, :min_time, :]
+        h_v = h_v[:, :min_time, :]
 
-    def freeze_feature_extractor(self):
-        for parameter in self.wav2vec2.parameters():
-            parameter.requires_grad = False
-
-    def forward(self, audio_input, canonical):
-        acoustic = self.wav2vec2(audio_input, attention_mask=None)[0]
-        linguistic = self.embedding(canonical)
-        linguistic = linguistic[:, :acoustic.shape[1], :]
-        attended_a, _ = self.multihead_attention_a(acoustic, self.prj_l(linguistic), linguistic)
-        attended_l, _ = self.multihead_attention_l(linguistic, self.prj_a(acoustic), acoustic)
-        output = torch.concat([attended_a, attended_l], dim=2)
-        logits = self.classifier_vocab(output)
-        return logits
-
-
-class Wav2Vec2Error(Wav2Vec2PreTrainedModel):
-    def __init__(self, config):
-        super().__init__(config)
-        self.wav2vec2 = Wav2Vec2Model(config)
-        self.classifier_vocab = nn.Linear(768, 124)
-        self.linear1 = nn.Linear(768, 768)
-        self.multihead_attention = nn.MultiheadAttention(
-            embed_dim=768,
-            num_heads=16,
-            dropout=0.2,
-            batch_first=True,
-        )
-        self.compare_attention = nn.MultiheadAttention(
-            embed_dim=768,
-            num_heads=16,
-            dropout=0.2,
-            batch_first=True,
-        )
-        self.embedding = nn.Embedding(124, 768, padding_idx=68)
-        self.error_classifier = nn.Linear(768, 2)
-        self.post_init()
-
-    def freeze_feature_extractor(self):
-        for parameter in self.wav2vec2.parameters():
-            parameter.requires_grad = False
-
-    def forward(self, audio_input, canonical):
-        acoustic = self.wav2vec2(audio_input, attention_mask=None)[0]
-        linguistic = self.embedding(canonical)
-        linguistic_error, _ = self.compare_attention(linguistic, acoustic, acoustic)
-        linguistic_error = linguistic - linguistic_error
-        acoustic, _ = self.multihead_attention(acoustic, linguistic_error, linguistic_error)
-        logits = self.classifier_vocab(acoustic)
-        linguistic_error = self.error_classifier(linguistic_error)
-        return logits, linguistic_error
+        attn_output, _ = self.multihead_attn(phonetic, h_k, h_v)
+        # concatenate attended and phonetic features
+        before_Linear = torch.cat((attn_output, phonetic), dim=2)
+        output = self.fc1(before_Linear)
+        return output

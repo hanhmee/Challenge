@@ -54,16 +54,3 @@ def parse_error(error_raw) -> List[int]:
         return ast.literal_eval(error_raw)
     return list(error_raw)
 
-
-def canonical_time_to_tensor(canonical_time_raw, max_length: int, vocab: Dict[str, int]) -> torch.Tensor:
-    canonical_time = torch.full((max_length,), PAD_TOKEN_ID)
-    canonical_items = ast.literal_eval(canonical_time_raw) if isinstance(canonical_time_raw, str) else canonical_time_raw
-
-    for item in canonical_items:
-        time_span = list(item.keys())[0]
-        phone = list(item.values())[0]
-        start, end = time_span
-        canonical_time[start:end] = vocab[phone]
-
-    return canonical_time
-

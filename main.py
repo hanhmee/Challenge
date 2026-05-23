@@ -5,7 +5,6 @@ from trainer import MDDTrainer
 
 def build_args():
     parser = argparse.ArgumentParser(description='Structured XLSR-based MDD training pipeline')
-    parser.add_argument('--mode', choices=['wl', 'mfa'], default='wl', help='Training mode')
     parser.add_argument('--train_csv', type=str, default='/home/user14/trungnt/mdd/vietMDD/train_new.csv', help='Path to train csv file')
     parser.add_argument('--dev_csv', type=str, default='/home/user14/trungnt/mdd/vietMDD/test_new.csv', help='Path to dev csv file')
     parser.add_argument('--train_wav_dir', type=str, default='/home/user14/trungnt/mdd/vietMDD/wav', help='Directory containing wav files')
@@ -24,7 +23,7 @@ def infer():
     trainer = MDDTrainer(args)
     INFER_CSV = "test_time.csv"
     INFER_WAV_DIR = "/home/datpt/lamnh/en-mdd/EN_MDD/WAV"
-    trainer.inference(csv_path=INFER_CSV, wav_dir=INFER_WAV_DIR, batch_size=4, checkpoint="checkpoint/vietmdd/checkpoint_wl_apl.pth")
+    trainer.inference(csv_path=INFER_CSV, wav_dir=INFER_WAV_DIR, batch_size=4, checkpoint="checkpoint/vietmdd/checkpoint_wl.pth")
 
 
 def main():

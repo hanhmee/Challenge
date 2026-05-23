@@ -8,11 +8,8 @@ import torch
 from torch.utils.data import Dataset
 
 from utils import (
-    ERROR_PAD_ID,
     PAD_TOKEN_ID,
     SAMPLE_RATE,
-    canonical_time_to_tensor,
-    parse_error,
     text_to_tensor,
 )
 
@@ -56,10 +53,7 @@ class MDDDataset(Dataset):
         return os.path.join(self.wav_dir, f"{raw_path}.wav")
 
 
-def make_collate_fn(mode: str, feature_extractor, device: torch.device, vocab: Dict[str, int]):
-    if mode not in {'wl', 'mfa'}:
-        raise ValueError("mode must be either 'wl' or 'mfa'")
-
+def make_collate_fn(feature_extractor, device: torch.device):
     def collate_fn(batch):
         with torch.no_grad():
             max_col = [-1] * 4
@@ -74,19 +68,10 @@ def make_collate_fn(mode: str, feature_extractor, device: torch.device, vocab: D
                 'linguistic': [],
                 'transcript': [],
                 'outputlengths': [], 
-                'input_lengths': [], # <--- THÊM MỚI: Dùng để lưu chiều dài gốc của âm thanh
+                'input_lengths': [],
             }
 
-            if mode == 'mfa':
-                cols['canonical_time'] = []
-                max_length = max_col[0] // 320
-
             for row in batch:
-                if mode == 'mfa':
-                    canonical_time = canonical_time_to_tensor(row[4], max_length=max_length, vocab=vocab)
-                    cols['canonical_time'].append(canonical_time)
-
-                # LƯU LẠI ĐỘ DÀI GỐC CỦA AUDIO (trước khi padding)
                 cols['input_lengths'].append(row[0].shape[0]) 
 
                 pad_wav = np.concatenate([row[0], np.zeros(max_col[0] - row[0].shape[0])])
@@ -106,24 +91,9 @@ def make_collate_fn(mode: str, feature_extractor, device: torch.device, vocab: D
             cols['linguistic'] = torch.tensor(cols['linguistic'], dtype=torch.long, device=device)
             cols['transcript'] = torch.tensor(cols['transcript'], dtype=torch.long, device=device)
             cols['outputlengths'] = torch.tensor(cols['outputlengths'], dtype=torch.long, device=device)
-            
-            # Khởi tạo Tensor cho độ dài âm thanh
             cols['input_lengths'] = torch.tensor(cols['input_lengths'], dtype=torch.long, device=device)
 
-            if mode == 'mfa':
-                cols['canonical_time'] = torch.stack(cols['canonical_time']).to(device)
-                return (
-                    input_values,
-                    cols['linguistic'],
-                    cols['transcript'],
-                    cols['error'],
-                    cols['outputlengths'],
-                    cols['input_lengths'], 
-                    cols['canonical_time'],
-                )
-
             return (
-                cols['waveform'],
                 input_values,
                 cols['linguistic'],
                 cols['transcript'],

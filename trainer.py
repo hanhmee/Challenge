@@ -11,14 +11,13 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import MDDDataset, make_collate_fn
-from apl_model import APL
+from model import APL
 from utils import (
     BLANK_TOKEN_ID,
     SAMPLE_RATE,
     PAD_TOKEN_ID,
     CTC_LABELS,
     build_feature_extractor,
-    canonical_time_to_tensor,
     create_decoder,
     get_device,
     load_vocab,
@@ -42,7 +41,7 @@ class MDDTrainer:
             dataset=self.train_dataset,
             batch_size=args.batch_size,
             shuffle=True,
-            collate_fn=make_collate_fn(args.mode, self.feature_extractor, self.device, self.vocab),
+            collate_fn=make_collate_fn(self.feature_extractor, self.device),
         )
 
         self.dev_dataset = MDDDataset(self.df_dev, wav_dir=self.args.dev_wav_dir, vocab=self.vocab)
@@ -50,7 +49,7 @@ class MDDTrainer:
             dataset=self.dev_dataset,
             batch_size=1,
             shuffle=False,
-            collate_fn=make_collate_fn(args.mode, self.feature_extractor, self.device, self.vocab),
+            collate_fn=make_collate_fn(self.feature_extractor, self.device),
         )
 
         model_cls = APL
@@ -80,7 +79,7 @@ class MDDTrainer:
                 if epoch_wer < self.min_wer:
                     print('save_checkpoint...')
                     self.min_wer = epoch_wer
-                    ckpt_name = f"checkpoint_{self.args.mode}.pth"
+                    ckpt_name = "checkpoint_wl.pth"
                     ckpt_path = os.path.join(self.args.checkpoint_dir, ckpt_name)
                     torch.save(self.model.state_dict(), ckpt_path)
 
@@ -95,14 +94,10 @@ class MDDTrainer:
         worderrorrate = []
 
         for batch_idx, data in tqdm(enumerate(self.train_loader), total=len(self.train_loader)):
-            # 1. Unpack thêm wav_lengths dựa theo số lượng item trả về từ collate_fn
-            if self.args.mode == 'wl':
-                waveform, input_values, linguistic, labels, target_lengths, wav_lengths = data
-                input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
-            elif self.args.mode == 'mfa':
-                acoustic, linguistic, labels, target_lengths, wav_lengths = data
+            input_values, linguistic, labels, target_lengths, wav_lengths = data
+            input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
 
-            logits = self.model(waveform, input_values, linguistic)
+            logits = self.model(input_values, linguistic)
 
             logits = logits.transpose(0, 1)
 
@@ -171,12 +166,9 @@ class MDDTrainer:
 
         with torch.no_grad():
             for batch_idx, data in tqdm(enumerate(self.dev_loader), total=len(self.dev_loader)):
-                if self.args.mode == 'wl':
-                    waveform, input_values, linguistic, labels, target_lengths, wav_lengths = data
-                elif self.args.mode == 'mfa':
-                    acoustic, linguistic, labels, target_lengths, wav_lengths, canonical_time = data
+                input_values, linguistic, labels, target_lengths, wav_lengths = data
 
-                logits = self.model(waveform, input_values, linguistic)
+                logits = self.model(input_values, linguistic)
                 logits = F.log_softmax(logits, dim=2)
                 input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
 
@@ -255,7 +247,7 @@ class MDDTrainer:
                 # forward
                 with torch.no_grad():
                     input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
-                    logits = self.model(input_values, input_values, canonical)
+                    logits = self.model(input_values, canonical)
                     logits = F.log_softmax(logits, dim=2)
 
                 for b in range(logits.shape[0]):
