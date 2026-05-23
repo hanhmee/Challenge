@@ -30,6 +30,7 @@ class MDDTrainer:
     def __init__(self, args):
         self.args = args
         self.device = get_device()
+        print(f"Training device: {self.device}")
         self.feature_extractor = build_feature_extractor()
         self.vocab = load_vocab(args.vocab_path)
 
@@ -55,7 +56,7 @@ class MDDTrainer:
         model_cls = APL
         self.model = model_cls.from_pretrained(args.pretrained_model)
         self.model.freeze_feature_extractor()
-        self.model = self.model.to(self.device)
+        self.model = self.model.to(self.device).cuda()
         self._print_trainable_parameters()
 
         # Build CTC decoder using the same label ordering as the model vocab
