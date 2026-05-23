@@ -98,7 +98,7 @@ class Linguistic_encoder(nn.Module):
         return x, y
     
 class PL(Wav2Vec2PreTrainedModel):
-    def __init__(self, config, hidden_dim=1024, vocab_size: int = 123):
+    def __init__(self, config, hidden_dim=768, vocab_size: int = 123):
         super().__init__(config)
         self.wav2vec2 = Wav2Vec2Model(config)
         self.Phonetic_encoder = Phonetic_encoder(hidden_dim=hidden_dim)

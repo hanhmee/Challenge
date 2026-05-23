@@ -57,7 +57,7 @@ class MDDTrainer:
         vocab_size = len(self.vocab)
         self.model = model_cls.from_pretrained(args.pretrained_model, vocab_size=vocab_size)
         self.model.freeze_feature_extractor()
-        self.model = self.model.to(self.device).cuda()
+        self.model = self.model.to(self.device)
         self._print_trainable_parameters()
 
         # Build CTC decoder using the same label ordering as the model vocab
@@ -98,13 +98,13 @@ class MDDTrainer:
         for batch_idx, data in tqdm(enumerate(self.train_loader), total=len(self.train_loader)):
             input_values, linguistic, labels, target_lengths, wav_lengths = data
             input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
-
+            print(input_lengths, target_lengths, wav_lengths)
+            quit()
             logits = self.model(input_values, linguistic)
 
             logits = logits.transpose(0, 1)
-
-
             logits = F.log_softmax(logits, dim=2)
+
 
             loss = self.ctc_loss(logits, labels, input_lengths, target_lengths)
 
@@ -169,10 +169,11 @@ class MDDTrainer:
         with torch.no_grad():
             for batch_idx, data in tqdm(enumerate(self.dev_loader), total=len(self.dev_loader)):
                 input_values, linguistic, labels, target_lengths, wav_lengths = data
+                input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
 
                 logits = self.model(input_values, linguistic)
                 logits = F.log_softmax(logits, dim=2)
-                input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
+                
 
                 for b in range(logits.shape[0]):
                     valid_len = input_lengths[b].item()
