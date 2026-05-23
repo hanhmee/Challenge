@@ -206,9 +206,6 @@ def compute_per(ground_truth_path, results_path):
         human_str = gt_row["transcript"]  # Your reference for PER
         our_str   = res_row["predict"]    # Your model's output
 
-        # Using your existing 2-way alignment helper
-        # Returns lists/strings of the aligned sequences and operation codes
-        # op_ho contains 'C' (Correct), 'S' (Sub), 'D' (Del), 'I' (Ins)
         human_seq, our_seq, op_ho = _align_pair(human_str, our_str)
 
         # Count the operations directly from the alignment op-codes
@@ -299,13 +296,8 @@ def compute_der(ground_truth_path, results_path):
     # TR: True Rejection (System correctly detected an error)
     TR = sub_sub + sub_sub1 + del_del + del_del1 + ins_ins + ins_ins1
     
-    # FA: False Acceptance (System missed an error)
-    FA = sub_nosub + ins_noins + del_nodel
-    
     # DE: Diagnosis Error (System detected the error, but gave the wrong phoneme)
     DE = sub_sub1 + del_del1 + ins_ins1
-
-    total_actual_errors = TR
 
     der = DE / TR 
     return der

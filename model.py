@@ -98,7 +98,7 @@ class Linguistic_encoder(nn.Module):
         return x, y
     
 class PL(Wav2Vec2PreTrainedModel):
-    def __init__(self, config, hidden_dim=1024, vocab_size: int = 123):
+    def __init__(self, config, hidden_dim=768, vocab_size: int = 123):
         super().__init__(config)
         self.wav2vec2 = Wav2Vec2Model(config)
         self.Phonetic_encoder = Phonetic_encoder(hidden_dim=hidden_dim)
@@ -111,20 +111,14 @@ class PL(Wav2Vec2PreTrainedModel):
         self.wav2vec2.feature_extractor._freeze_parameters()
 
     def forward(self, input_values, linguistic):
-        # phonetic features from wav2vec
         phonetic = self.wav2vec2(input_values, attention_mask=None)[0]
-
-        phonetic = self.Phonetic_encoder(phonetic)  # batch x time x hidden_dim
+        phonetic = self.Phonetic_encoder(phonetic)  
         h_k, h_v = self.Linguistic_encoder(linguistic)
 
-        # ensure time alignment
-        min_time = min(phonetic.size(1), h_k.size(1))
-        phonetic = phonetic[:, :min_time, :]
-        h_k = h_k[:, :min_time, :]
-        h_v = h_v[:, :min_time, :]
-
+        # KHÔNG CẮT GỌT phonetic theo linguistic nữa!
+        # Để MultiheadAttention tự làm việc: Query=phonetic (T frames), Key=h_k (N frames)
         attn_output, _ = self.multihead_attn(phonetic, h_k, h_v)
-        # concatenate attended and phonetic features
+        
         before_Linear = torch.cat((attn_output, phonetic), dim=2)
         output = self.fc1(before_Linear)
         return output

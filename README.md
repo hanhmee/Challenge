@@ -20,7 +20,7 @@ conda activate mdd
 pip install -r requirements.txt
 ```
 
-Prepare your data to be in the same format with `train_time.csv`, `dev_time.csv`, `test_time.csv` (all 3 of them are in the same format), and your vocabulary into `vocab.json`
+Prepare your data to be in the same format with `train.csv`, `dev.csv`, `test.csv` (all 3 of them are in the same format), and your vocabulary into `vocab.json`
 
 Modify the architecture inside `model.py`
 
@@ -28,8 +28,8 @@ Run training:
 
 ```bash
 python main.py \
-  --train_csv /path/to/train_time.csv \
-  --dev_csv /path/to/dev_time.csv \
+  --train_csv /path/to/train.csv \
+  --dev_csv /path/to/dev.csv \
   --wav_dir /path/to/WAV \
   --vocab_path /path/to/vocab.json \
   --checkpoint_dir ./checkpoint

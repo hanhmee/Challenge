@@ -109,6 +109,7 @@ class MDDTrainer:
                 device=self.device,
             )
 
+
             loss = self.ctc_loss(logits, labels, input_lengths, target_lengths)
 
             running_loss.append(loss.item())
@@ -172,15 +173,10 @@ class MDDTrainer:
         with torch.no_grad():
             for batch_idx, data in tqdm(enumerate(self.dev_loader), total=len(self.dev_loader)):
                 input_values, linguistic, labels, target_lengths, wav_lengths = data
+                input_lengths = self.model._get_feat_extract_output_lengths(wav_lengths)
 
                 logits = self.model(input_values, linguistic)
                 logits = F.log_softmax(logits, dim=2)
-                input_lengths = torch.full(
-                    (logits.shape[0],),
-                    logits.shape[1],
-                    dtype=torch.long,
-                    device=self.device,
-                )
 
                 for b in range(logits.shape[0]):
                     valid_len = input_lengths[b].item()
