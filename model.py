@@ -97,16 +97,14 @@ class Linguistic_encoder(nn.Module):
         x = self.fc3(o)
         return x, y
     
-class APL(Wav2Vec2PreTrainedModel):
-    def __init__(self, config, hidden_dim=1024):
+class PL(Wav2Vec2PreTrainedModel):
+    def __init__(self, config, hidden_dim=1024, vocab_size: int = 123):
         super().__init__(config)
         self.wav2vec2 = Wav2Vec2Model(config)
         self.Phonetic_encoder = Phonetic_encoder(hidden_dim=hidden_dim)
         self.Linguistic_encoder = Linguistic_encoder()
-        # self.text_to_tensor = text_to_tensor
-        # self.tensor_to_text = tensor_to_text
-        # phonetic-only attention: embed_dim = hidden_dim
-        self.fc1 = nn.Linear(hidden_dim*2, 123, bias=True)
+
+        self.fc1 = nn.Linear(hidden_dim*2, vocab_size, bias=True)
         self.multihead_attn = nn.MultiheadAttention(hidden_dim, 16, batch_first=True, kdim=2304, vdim=2304)
 
     def freeze_feature_extractor(self):

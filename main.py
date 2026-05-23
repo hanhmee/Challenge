@@ -11,7 +11,7 @@ def build_args():
     parser.add_argument('--dev_wav_dir', type=str, default='/home/user14/trungnt/mdd/vietMDD/wav', help='Directory containing wav files')
     parser.add_argument('--vocab_path', type=str, default='/home/user14/trungnt/mdd/xlsr_mdd_structured/vocab.json', help='Path to vocab json')
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoint/vietmdd', help='Output checkpoint directory')
-    parser.add_argument('--pretrained_model', type=str, default='nguyenvulebinh/wav2vec2-large-vi-vlsp2020')
+    parser.add_argument('--pretrained_model', type=str, default='facebook/wav2vec2-base-100h')
     parser.add_argument('--num_epoch', type=int, default=100)
     parser.add_argument('--eval_start_epoch', type=int, default=30)
     parser.add_argument('--batch_size', type=int, default=4)

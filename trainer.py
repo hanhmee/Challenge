@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import MDDDataset, make_collate_fn
-from model import APL
+from model import PL
 from utils import (
     BLANK_TOKEN_ID,
     SAMPLE_RATE,
@@ -52,8 +52,10 @@ class MDDTrainer:
             collate_fn=make_collate_fn(self.feature_extractor, self.device),
         )
 
-        model_cls = APL
-        self.model = model_cls.from_pretrained(args.pretrained_model)
+        model_cls = PL
+        # pass vocab size into model so final linear layer matches tokenizer/vocab
+        vocab_size = len(self.vocab)
+        self.model = model_cls.from_pretrained(args.pretrained_model, vocab_size=vocab_size)
         self.model.freeze_feature_extractor()
         self.model = self.model.to(self.device).cuda()
         self._print_trainable_parameters()
