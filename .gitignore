@@ -24,5 +24,6 @@ wandb/
 __pycache__/
 *.pyc
 venv/
+.venv/
 .env
 logs/
